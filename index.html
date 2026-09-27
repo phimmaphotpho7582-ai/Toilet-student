@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แจ้งปัญหาห้องน้ำ - โรงเรียน</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
+        body { background-color: #f4f6f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.06); width: 100%; max-width: 480px; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h2 { color: #d32f2f; margin: 0; font-size: 24px; }
+        .header p { color: #666; font-size: 13px; margin-top: 4px; }
+        
+        .dashboard-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+        .dashboard-box h3 { margin: 0 0 10px 0; font-size: 15px; color: #334155; }
+        .status-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+        .status-item { display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px 12px; border-radius: 8px; font-size: 13px; border-left: 4px solid #ccc; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .status-item.cleaned { border-left-color: #2e7d32; }
+        .status-item.cleaning { border-left-color: #fbc02d; }
+        .status-item.issue { border-left-color: #d32f2f; }
+        .status-info { display: flex; flex-direction: column; }
+        .status-location { font-weight: 600; color: #1e293b; }
+        .status-time { font-size: 11px; color: #64748b; }
+        .status-badge { font-weight: 600; font-size: 12px; }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; color: #333; font-size: 14px; }
+        select, input { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; outline: none; }
+        select:focus, input:focus { border-color: #d32f2f; }
+        .tag-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+        .tag { background: #f0f0f0; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; user-select: none; transition: 0.2s; }
+        .tag.active { background: #d32f2f; color: white; }
+        .btn-submit { width: 100%; background-color: #d32f2f; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 15px; transition: 0.3s; }
+        .btn-submit:hover { background-color: #b71c1c; }
+        #statusMessage { margin-top: 15px; text-align: center; font-size: 14px; font-weight: 600; }
+        .success { color: #2e7d32; }
+        .error { color: #d32f2f; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header">
+        <h2>📢 แจ้งปัญหาห้องน้ำ</h2>
+        <p>ตรวจสอบสถานะ และแจ้งปัญหาสำหรับนักเรียน/ครู</p>
+    </div>
+
+    <!-- ส่วนแสดงสถานะห้องน้ำล่าสุด -->
+    <div class="dashboard-box">
+        <h3>📊 สถานะห้องน้ำล่าสุด</h3>
+        <div class="status-list" id="dashboardList"></div>
+    </div>
+
+    <form id="reportForm">
+        <div class="form-group">
+            <label for="reporter">ชื่อผู้แจ้ง (ครู/นักเรียน) / ชั้นเรียน:</label>
+            <input type="text" id="reporter" placeholder="เช่น ด.ช.รักดี ม.2/1 หรือ ครูสมชาย" required>
+        </div>
+
+        <div class="form-group">
+            <label for="location">เลือกตำแหน่งห้องน้ำที่พบปัญหา:</label>
+            <select id="location" required></select>
+        </div>
+
+        <div class="form-group">
+            <label>ระบุปัญหาที่พบ (เลือกได้หลายข้อ):</label>
+            <div class="tag-container">
+                <span class="tag" onclick="toggleTag(this)">🧹 ห้องน้ำสกปรก/พื้นเปียก</span>
+                <span class="tag" onclick="toggleTag(this)">🧻 กระดาษชำระหมด</span>
+                <span class="tag" onclick="toggleTag(this)">🧼 สบู่ล้างมือหมด</span>
+                <span class="tag" onclick="toggleTag(this)">💧 น้ำไม่ไหล/ไหลค่อย</span>
+                <span class="tag" onclick="toggleTag(this)">🚽 ชักโครกอุดตัน/กดไม่ลง</span>
+                <span class="tag" onclick="toggleTag(this)">💡 ไฟเสีย/มืด</span>
+                <span class="tag" onclick="toggleTag(this)">🚪 ประตู/กลอนชำรุด</span>
+            </div>
+            <input type="text" id="customRemark" placeholder="พิมพ์รายละเอียดเพิ่มเติม (ถ้ามี)..." style="margin-top: 10px;">
+        </div>
+
+        <button type="button" class="btn-submit" onclick="sendToTelegram()">ส่งรายงานปัญหา</button>
+    </form>
+
+    <div id="statusMessage"></div>
+</div>
+
+<script>
+    // อัปเดต Token และ Group Chat ID ให้ตรงกับบอทตัวหลัก
+    const BOT_TOKEN = "8972702678:AAE6vUtPzWUjW_bLcNzEPz0MAequhmECobk"; 
+    const CHAT_ID = "-5330824935";               
+
+    const locations = [
+        "ห้องน้ำชายโรงอาหาร", "ห้องน้ำหญิงโรงอาหาร",
+        "ห้องน้ำชายหลวงตาบุญชื่น", "ห้องน้ำหญิงหลวงตาบุญชื่น",
+        "ห้องน้ำชายข้างหอประชุม", "ห้องน้ำชายอาคาร3",
+        "ห้องน้ำหญิงอาคาร3", "ห้องน้ำครูอาคาร2ฝั่งตะวันตก",
+        "ห้องน้ำครูอาคาร2ฝั่งตะวันออก", "ห้องน้ำครูอาคาร1",
+        "ห้องน้ำครูอาคาร4", "ห้องน้ำชายอาคาร4",
+        "ห้องน้ำหญิงอาคาร4", "ห้องน้ำห้องกิจการ"
+    ];
+
+    function initLocationSelect() {
+        const select = document.getElementById("location");
+        locations.forEach((loc) => {
+            const opt = document.createElement("option");
+            opt.value = loc;
+            opt.textContent = loc;
+            select.appendChild(opt);
+        });
+    }
+
+    function renderDashboard() {
+        const dashboardList = document.getElementById("dashboardList");
+        dashboardList.innerHTML = "";
+        const savedData = JSON.parse(localStorage.getItem("restroomStatus")) || {};
+
+        locations.forEach(loc => {
+            const data = savedData[loc] || {
+                icon: "⚪",
+                text: "ยังไม่ได้ทำความสะอาด",
+                time: "-",
+                reporter: "-",
+                type: "pending"
+            };
+
+            const item = document.createElement("div");
+            item.className = `status-item ${data.type}`;
+            item.innerHTML = `
+                <div class="status-info">
+                    <span class="status-location">${loc}</span>
+                    <span class="status-time">อัปเดตล่าสุด: ${data.time} (${data.reporter})</span>
+                </div>
+                <span class="status-badge">${data.icon} ${data.text}</span>
+            `;
+            dashboardList.appendChild(item);
+        });
+    }
+
+    function updateLocalStatus(location, icon, statusText, reporter, timeString) {
+        const savedData = JSON.parse(localStorage.getItem("restroomStatus")) || {};
+        savedData[location] = { 
+            icon: icon, 
+            text: statusText, 
+            time: timeString, 
+            reporter: reporter, 
+            type: "issue" 
+        };
+        localStorage.setItem("restroomStatus", JSON.stringify(savedData));
+        renderDashboard();
+    }
+
+    function toggleTag(element) {
+        element.classList.toggle('active');
+    }
+
+    async function sendToTelegram() {
+        const reporter = document.getElementById("reporter").value.trim() || "ไม่ระบุตัวตน";
+        const locationName = document.getElementById("location").value;
+        const selectedTags = Array.from(document.querySelectorAll('.tag.active')).map(t => t.innerText);
+        const customRemark = document.getElementById("customRemark").value.trim();
+        
+        let remarksList = [...selectedTags];
+        if (customRemark) remarksList.push(customRemark);
+        
+        if (remarksList.length === 0) {
+            alert("กรุณาเลือกหรือระบุปัญหาอย่างน้อย 1 รายการ");
+            return;
+        }
+
+        const remarkString = remarksList.join("\n- ");
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น.";
+
+        const messageText = `🚨 *แจ้งปัญหาห้องน้ำ (จากนักเรียน/ครู)*\n` +
+                            `📍 *สถานที่:* ${locationName}\n` +
+                            `⚠️ *ปัญหาที่พบ:*\n- ${remarkString}\n` +
+                            `👤 *ผู้แจ้ง:* ${reporter}\n` +
+                            `⏰ *เวลา:* ${timeString}`;
+
+        const statusDiv = document.getElementById("statusMessage");
+        statusDiv.className = "";
+        statusDiv.innerText = "กำลังส่งข้อมูล...";
+
+        try {
+            const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chat_id: CHAT_ID,
+                    text: messageText,
+                    parse_mode: "Markdown"
+                })
+            });
+            const data = await response.json();
+
+            if (data.ok) {
+                // อัปเดตสถานะ LocalStorage ให้แสดงผลว่าพบปัญหาตรงกัน
+                updateLocalStatus(locationName, "🔴", "แจ้งพบปัญหา", reporter, timeString);
+
+                statusDiv.className = "success";
+                statusDiv.innerText = "✅ ส่งรายงานปัญหาเรียบร้อยแล้ว ขอบคุณครับ/ค่ะ";
+                document.querySelectorAll('.tag.active').forEach(t => t.classList.remove('active'));
+                document.getElementById("customRemark").value = "";
+                document.getElementById("reporter").value = "";
+            } else {
+                statusDiv.className = "error";
+                statusDiv.innerText = "❌ เกิดข้อผิดพลาดในการส่งข้อมูล (ตรวจสอบ Chat ID หรือการกด Start บอท)";
+            }
+        } catch (error) {
+            statusDiv.className = "error";
+            statusDiv.innerText = "❌ ไม่สามารถเชื่อมต่อระบบได้";
+        }
+    }
+
+    window.onload = () => {
+        initLocationSelect();
+        renderDashboard();
+        // ดึงสถานะอัปเดตอัตโนมัติทุก 3 วินาที
+        setInterval(renderDashboard, 3000);
+    };
+</script>
+
+</body>
+</html>
